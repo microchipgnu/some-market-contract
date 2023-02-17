@@ -54,3 +54,4 @@ near call market buy '{
 - [ ] Implement storage staking when creating offers to avoid spam / running out of storage.
 - [ ] CI/CD workflow similar to [DevGigsBoard](https://github.com/near/devgigsboard-widgets/blob/main/.github/workflows/release.yml) for Near Social widgets
 - [ ] Implement Near Social Notifications contract or methods within this contract
+- [ ] Implement AffiliateDirect event logs (Mintbase Standard)
