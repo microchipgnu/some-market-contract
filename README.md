@@ -1,4 +1,4 @@
-SOME Marketplace
+SOME Marketplace ⚠️ 
 ==================
 
 SOME (Simply Offer MarketplacE) is a contract that facilitates the exchange of Non-fungible Tokens (NFTs) and Fungible Tokens (FTs). The contract leverages NEAR Social as a notification system to keep both parties informed throughout the exchange process.
