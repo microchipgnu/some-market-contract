@@ -3,6 +3,8 @@ SOME Marketplace
 
 SOME (Simply Offer MarketplacE) is a contract that facilitates the exchange of Non-fungible Tokens (NFTs) and Fungible Tokens (FTs). The contract leverages NEAR Social as a notification system to keep both parties informed throughout the exchange process.
 
+- [Near Social Live Demo](https://test.near.social/#/luisf.testnet/widget/some-market)
+- [Live Contract](https://testnet.nearblocks.io/address/dev-1676391043857-14814706623603)
 
 ## Features
 
@@ -46,3 +48,9 @@ near call market buy '{
    "offer_id": "XYZ" 
  }' --accountId B --depositYocto offer_amount
 ```
+
+## Future
+
+- [ ] Implement storage staking when creating offers to avoid spam / running out of storage.
+- [ ] CI/CD workflow similar to [DevGigsBoard](https://github.com/near/devgigsboard-widgets/blob/main/.github/workflows/release.yml) for Near Social widgets
+- [ ] Implement Near Social Notifications contract or methods within this contract
