@@ -33,30 +33,6 @@ var TypeBrand;
   TypeBrand["BIGINT"] = "bigint";
   TypeBrand["DATE"] = "date";
 })(TypeBrand || (TypeBrand = {}));
-function u8ArrayToBytes(array) {
-  return array.reduce((result, value) => `${result}${String.fromCharCode(value)}`, "");
-}
-/**
- * Accepts a string or Uint8Array and either checks for the validity of the string or converts the Uint8Array to Bytes.
- *
- * @param stringOrU8Array - The string or Uint8Array to be checked/transformed
- * @returns Safe Bytes to be used in NEAR calls.
- */
-function bytes(stringOrU8Array) {
-  if (typeof stringOrU8Array === "string") {
-    return checkStringIsBytes(stringOrU8Array);
-  }
-  if (stringOrU8Array instanceof Uint8Array) {
-    return u8ArrayToBytes(stringOrU8Array);
-  }
-  throw new Error("bytes: expected string or Uint8Array");
-}
-function checkStringIsBytes(value) {
-  [...value].forEach((character, index) => {
-    assert(character.charCodeAt(0) <= 255, `string ${value} at index ${index}: ${character} is not a valid byte`);
-  });
-  return value;
-}
 /**
  * Asserts that the expression passed to the function is truthy, otherwise throws a new Error with the provided message.
  *
@@ -71,6 +47,9 @@ function assert(expression, message) {
 function getValueWithOptions(value, options = {
   deserializer: deserialize
 }) {
+  if (value === null) {
+    return options?.defaultValue ?? null;
+  }
   const deserialized = deserialize(value);
   if (deserialized === undefined || deserialized === null) {
     return options?.defaultValue ?? null;
@@ -88,7 +67,7 @@ function serializeValueWithOptions(value, {
   return serializer(value);
 }
 function serialize(valueToSerialize) {
-  return JSON.stringify(valueToSerialize, function (key, value) {
+  return encode(JSON.stringify(valueToSerialize, function (key, value) {
     if (typeof value === "bigint") {
       return {
         value: value.toString(),
@@ -102,10 +81,10 @@ function serialize(valueToSerialize) {
       };
     }
     return value;
-  });
+  }));
 }
 function deserialize(valueToDeserialize) {
-  return JSON.parse(valueToDeserialize, (_, value) => {
+  return JSON.parse(decode(valueToDeserialize), (_, value) => {
     if (value !== null && typeof value === "object" && Object.keys(value).length === 2 && Object.keys(value).every(key => ["value", TYPE_KEY].includes(key))) {
       switch (value[TYPE_KEY]) {
         case TypeBrand.BIGINT:
@@ -117,27 +96,38 @@ function deserialize(valueToDeserialize) {
     return value;
   });
 }
-
 /**
- * A Promise result in near can be one of:
- * - NotReady = 0 - the promise you are specifying is still not ready, not yet failed nor successful.
- * - Successful = 1 - the promise has been successfully executed and you can retrieve the resulting value.
- * - Failed = 2 - the promise execution has failed.
+ * Convert a string to Uint8Array, each character must have a char code between 0-255.
+ * @param s - string that with only Latin1 character to convert
+ * @returns result Uint8Array
  */
-var PromiseResult;
-(function (PromiseResult) {
-  PromiseResult[PromiseResult["NotReady"] = 0] = "NotReady";
-  PromiseResult[PromiseResult["Successful"] = 1] = "Successful";
-  PromiseResult[PromiseResult["Failed"] = 2] = "Failed";
-})(PromiseResult || (PromiseResult = {}));
+function bytes(s) {
+  return env.latin1_string_to_uint8array(s);
+}
 /**
- * A promise error can either be due to the promise failing or not yet being ready.
+ * Convert a Uint8Array to string, each uint8 to the single character of that char code
+ * @param a - Uint8Array to convert
+ * @returns result string
  */
-var PromiseError;
-(function (PromiseError) {
-  PromiseError[PromiseError["Failed"] = 0] = "Failed";
-  PromiseError[PromiseError["NotReady"] = 1] = "NotReady";
-})(PromiseError || (PromiseError = {}));
+function str(a) {
+  return env.uint8array_to_latin1_string(a);
+}
+/**
+ * Encode the string to Uint8Array with UTF-8 encoding
+ * @param s - String to encode
+ * @returns result Uint8Array
+ */
+function encode(s) {
+  return env.utf8_string_to_uint8array(s);
+}
+/**
+ * Decode the Uint8Array to string in UTF-8 encoding
+ * @param a - array to decode
+ * @returns result string
+ */
+function decode(a) {
+  return env.uint8array_to_utf8_string(a);
+}
 
 /*! scure-base - MIT License (c) 2022 Paul Miller (paulmillr.com) */
 function assertNumber(n) {
@@ -459,6 +449,27 @@ var DataLength;
   DataLength[DataLength["SECP256K1"] = 64] = "SECP256K1";
 })(DataLength || (DataLength = {}));
 
+/**
+ * A Promise result in near can be one of:
+ * - NotReady = 0 - the promise you are specifying is still not ready, not yet failed nor successful.
+ * - Successful = 1 - the promise has been successfully executed and you can retrieve the resulting value.
+ * - Failed = 2 - the promise execution has failed.
+ */
+var PromiseResult;
+(function (PromiseResult) {
+  PromiseResult[PromiseResult["NotReady"] = 0] = "NotReady";
+  PromiseResult[PromiseResult["Successful"] = 1] = "Successful";
+  PromiseResult[PromiseResult["Failed"] = 2] = "Failed";
+})(PromiseResult || (PromiseResult = {}));
+/**
+ * A promise error can either be due to the promise failing or not yet being ready.
+ */
+var PromiseError;
+(function (PromiseError) {
+  PromiseError[PromiseError["Failed"] = 0] = "Failed";
+  PromiseError[PromiseError["NotReady"] = 1] = "NotReady";
+})(PromiseError || (PromiseError = {}));
+
 const U64_MAX = 2n ** 64n - 1n;
 const EVICTED_REGISTER = U64_MAX - 1n;
 /**
@@ -484,14 +495,14 @@ function log(...params) {
  */
 function predecessorAccountId() {
   env.predecessor_account_id(0);
-  return env.read_register(0);
+  return str(env.read_register(0));
 }
 /**
  * Returns the account ID of the current contract - the contract that is being executed.
  */
 function currentAccountId() {
   env.current_account_id(0);
-  return env.read_register(0);
+  return str(env.read_register(0));
 }
 /**
  * Returns the amount of NEAR attached to this function call.
@@ -505,7 +516,7 @@ function attachedDeposit() {
  *
  * @param key - The key to read from storage.
  */
-function storageRead(key) {
+function storageReadRaw(key) {
   const returnValue = env.storage_read(key, 0);
   if (returnValue !== 1n) {
     return null;
@@ -517,13 +528,21 @@ function storageRead(key) {
  *
  * @param key - The key to check for in storage.
  */
-function storageHasKey(key) {
+function storageHasKeyRaw(key) {
   return env.storage_has_key(key) === 1n;
+}
+/**
+ * Checks for the existance of a value under the provided utf-8 string key in NEAR storage.
+ *
+ * @param key - The utf-8 string key to check for in storage.
+ */
+function storageHasKey(key) {
+  return storageHasKeyRaw(encode(key));
 }
 /**
  * Get the last written or removed value from NEAR storage.
  */
-function storageGetEvicted() {
+function storageGetEvictedRaw() {
   return env.read_register(EVICTED_REGISTER);
 }
 /**
@@ -532,7 +551,7 @@ function storageGetEvicted() {
  * @param key - The key under which to store the value.
  * @param value - The value to store.
  */
-function storageWrite(key, value) {
+function storageWriteRaw(key, value) {
   return env.storage_write(key, value, EVICTED_REGISTER) === 1n;
 }
 /**
@@ -540,15 +559,29 @@ function storageWrite(key, value) {
  *
  * @param key - The key to be removed.
  */
-function storageRemove(key) {
+function storageRemoveRaw(key) {
   return env.storage_remove(key, EVICTED_REGISTER) === 1n;
+}
+/**
+ * Removes the value of the provided utf-8 string key from NEAR storage.
+ *
+ * @param key - The utf-8 string key to be removed.
+ */
+function storageRemove(key) {
+  return storageRemoveRaw(encode(key));
 }
 /**
  * Returns the arguments passed to the current smart contract call.
  */
-function input() {
+function inputRaw() {
   env.input(0);
   return env.read_register(0);
+}
+/**
+ * Returns the arguments passed to the current smart contract call as utf-8 string.
+ */
+function input() {
+  return decode(inputRaw());
 }
 /**
  * Attach a callback NEAR promise to be executed after a provided promise.
@@ -560,8 +593,21 @@ function input() {
  * @param amount - The amount of NEAR to attach to the call.
  * @param gas - The amount of Gas to attach to the call.
  */
-function promiseThen(promiseIndex, accountId, methodName, args, amount, gas) {
+function promiseThenRaw(promiseIndex, accountId, methodName, args, amount, gas) {
   return env.promise_then(promiseIndex, accountId, methodName, args, amount, gas);
+}
+/**
+ * Attach a callback NEAR promise to be executed after a provided promise.
+ *
+ * @param promiseIndex - The promise after which to call the callback.
+ * @param accountId - The account ID of the contract to perform the callback on.
+ * @param methodName - The name of the method to call.
+ * @param args - The utf-8 string arguments to call the method with.
+ * @param amount - The amount of NEAR to attach to the call.
+ * @param gas - The amount of Gas to attach to the call.
+ */
+function promiseThen(promiseIndex, accountId, methodName, args, amount, gas) {
+  return promiseThenRaw(promiseIndex, accountId, methodName, encode(args), amount, gas);
 }
 /**
  * Create a NEAR promise which will have multiple promise actions inside.
@@ -580,8 +626,20 @@ function promiseBatchCreate(accountId) {
  * @param amount - The amount of NEAR to attach to the call.
  * @param gas - The amount of Gas to attach to the call.
  */
-function promiseBatchActionFunctionCall(promiseIndex, methodName, args, amount, gas) {
+function promiseBatchActionFunctionCallRaw(promiseIndex, methodName, args, amount, gas) {
   env.promise_batch_action_function_call(promiseIndex, methodName, args, amount, gas);
+}
+/**
+ * Attach a function call promise action to the NEAR promise index with the provided promise index.
+ *
+ * @param promiseIndex - The index of the promise to attach a function call action to.
+ * @param methodName - The name of the method to be called.
+ * @param args - The utf-8 string arguments to call the method with.
+ * @param amount - The amount of NEAR to attach to the call.
+ * @param gas - The amount of Gas to attach to the call.
+ */
+function promiseBatchActionFunctionCall(promiseIndex, methodName, args, amount, gas) {
+  promiseBatchActionFunctionCallRaw(promiseIndex, methodName, encode(args), amount, gas);
 }
 /**
  * Attach a transfer promise action to the NEAR promise index with the provided promise index.
@@ -597,10 +655,18 @@ function promiseBatchActionTransfer(promiseIndex, amount) {
  *
  * @param promiseIndex - The index of the promise to return the result for.
  */
-function promiseResult(promiseIndex) {
+function promiseResultRaw(promiseIndex) {
   const status = env.promise_result(promiseIndex, 0);
   assert(Number(status) === PromiseResult.Successful, `Promise result ${status == PromiseResult.Failed ? "Failed" : status == PromiseResult.NotReady ? "NotReady" : status}`);
   return env.read_register(0);
+}
+/**
+ * Returns the result of the NEAR promise for the passed promise index as utf-8 string
+ *
+ * @param promiseIndex - The index of the promise to return the result for.
+ */
+function promiseResult(promiseIndex) {
+  return decode(promiseResultRaw(promiseIndex));
 }
 /**
  * Executes the promise in the NEAR WASM virtual machine.
@@ -609,6 +675,95 @@ function promiseResult(promiseIndex) {
  */
 function promiseReturn(promiseIndex) {
   env.promise_return(promiseIndex);
+}
+
+/**
+ * A lookup map that stores data in NEAR storage.
+ */
+class LookupMap {
+  /**
+   * @param keyPrefix - The byte prefix to use when storing elements inside this collection.
+   */
+  constructor(keyPrefix) {
+    this.keyPrefix = keyPrefix;
+  }
+  /**
+   * Checks whether the collection contains the value.
+   *
+   * @param key - The value for which to check the presence.
+   */
+  containsKey(key) {
+    const storageKey = this.keyPrefix + key;
+    return storageHasKey(storageKey);
+  }
+  /**
+   * Get the data stored at the provided key.
+   *
+   * @param key - The key at which to look for the data.
+   * @param options - Options for retrieving the data.
+   */
+  get(key, options) {
+    const storageKey = this.keyPrefix + key;
+    const value = storageReadRaw(encode(storageKey));
+    return getValueWithOptions(value, options);
+  }
+  /**
+   * Removes and retrieves the element with the provided key.
+   *
+   * @param key - The key at which to remove data.
+   * @param options - Options for retrieving the data.
+   */
+  remove(key, options) {
+    const storageKey = this.keyPrefix + key;
+    if (!storageRemove(storageKey)) {
+      return options?.defaultValue ?? null;
+    }
+    const value = storageGetEvictedRaw();
+    return getValueWithOptions(value, options);
+  }
+  /**
+   * Store a new value at the provided key.
+   *
+   * @param key - The key at which to store in the collection.
+   * @param newValue - The value to store in the collection.
+   * @param options - Options for retrieving and storing the data.
+   */
+  set(key, newValue, options) {
+    const storageKey = this.keyPrefix + key;
+    const storageValue = serializeValueWithOptions(newValue, options);
+    if (!storageWriteRaw(encode(storageKey), storageValue)) {
+      return options?.defaultValue ?? null;
+    }
+    const value = storageGetEvictedRaw();
+    return getValueWithOptions(value, options);
+  }
+  /**
+   * Extends the current collection with the passed in array of key-value pairs.
+   *
+   * @param keyValuePairs - The key-value pairs to extend the collection with.
+   * @param options - Options for storing the data.
+   */
+  extend(keyValuePairs, options) {
+    for (const [key, value] of keyValuePairs) {
+      this.set(key, value, options);
+    }
+  }
+  /**
+   * Serialize the collection.
+   *
+   * @param options - Options for storing the data.
+   */
+  serialize(options) {
+    return serializeValueWithOptions(this, options);
+  }
+  /**
+   * Converts the deserialized data from storage to a JavaScript instance of the collection.
+   *
+   * @param data - The deserialized data to create an instance from.
+   */
+  static reconstruct(data) {
+    return new LookupMap(data.keyPrefix);
+  }
 }
 
 /**
@@ -665,18 +820,18 @@ function NearBindgen({
         return new target();
       }
       static _getState() {
-        const rawState = storageRead("STATE");
+        const rawState = storageReadRaw(bytes("STATE"));
         return rawState ? this._deserialize(rawState) : null;
       }
       static _saveToStorage(objectToSave) {
-        storageWrite("STATE", this._serialize(objectToSave));
+        storageWriteRaw(bytes("STATE"), this._serialize(objectToSave));
       }
       static _getArgs() {
         return JSON.parse(input() || "{}");
       }
       static _serialize(value, forReturn = false) {
         if (forReturn) {
-          return JSON.stringify(value, (_, value) => typeof value === "bigint" ? `${value}` : value);
+          return encode(JSON.stringify(value, (_, value) => typeof value === "bigint" ? `${value}` : value));
         }
         return serializer(value);
       }
@@ -695,95 +850,6 @@ function NearBindgen({
       }
     };
   };
-}
-
-/**
- * A lookup map that stores data in NEAR storage.
- */
-class LookupMap {
-  /**
-   * @param keyPrefix - The byte prefix to use when storing elements inside this collection.
-   */
-  constructor(keyPrefix) {
-    this.keyPrefix = keyPrefix;
-  }
-  /**
-   * Checks whether the collection contains the value.
-   *
-   * @param key - The value for which to check the presence.
-   */
-  containsKey(key) {
-    const storageKey = this.keyPrefix + key;
-    return storageHasKey(storageKey);
-  }
-  /**
-   * Get the data stored at the provided key.
-   *
-   * @param key - The key at which to look for the data.
-   * @param options - Options for retrieving the data.
-   */
-  get(key, options) {
-    const storageKey = this.keyPrefix + key;
-    const value = storageRead(storageKey);
-    return getValueWithOptions(value, options);
-  }
-  /**
-   * Removes and retrieves the element with the provided key.
-   *
-   * @param key - The key at which to remove data.
-   * @param options - Options for retrieving the data.
-   */
-  remove(key, options) {
-    const storageKey = this.keyPrefix + key;
-    if (!storageRemove(storageKey)) {
-      return options?.defaultValue ?? null;
-    }
-    const value = storageGetEvicted();
-    return getValueWithOptions(value, options);
-  }
-  /**
-   * Store a new value at the provided key.
-   *
-   * @param key - The key at which to store in the collection.
-   * @param newValue - The value to store in the collection.
-   * @param options - Options for retrieving and storing the data.
-   */
-  set(key, newValue, options) {
-    const storageKey = this.keyPrefix + key;
-    const storageValue = serializeValueWithOptions(newValue, options);
-    if (!storageWrite(storageKey, storageValue)) {
-      return options?.defaultValue ?? null;
-    }
-    const value = storageGetEvicted();
-    return getValueWithOptions(value, options);
-  }
-  /**
-   * Extends the current collection with the passed in array of key-value pairs.
-   *
-   * @param keyValuePairs - The key-value pairs to extend the collection with.
-   * @param options - Options for storing the data.
-   */
-  extend(keyValuePairs, options) {
-    for (const [key, value] of keyValuePairs) {
-      this.set(key, value, options);
-    }
-  }
-  /**
-   * Serialize the collection.
-   *
-   * @param options - Options for storing the data.
-   */
-  serialize(options) {
-    return serializeValueWithOptions(this, options);
-  }
-  /**
-   * Converts the deserialized data from storage to a JavaScript instance of the collection.
-   *
-   * @param data - The deserialized data to create an instance from.
-   */
-  static reconstruct(data) {
-    return new LookupMap(data.keyPrefix);
-  }
 }
 
 var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _class, _class2;
@@ -810,7 +876,7 @@ let Market = (_dec = NearBindgen({
     this.near_social_account_id = NEAR_SOCIAL_CONTRACT_ID_DEFAULT;
   }
   init() {}
-  get_offer_token_contract_id({
+  get_offer_by_id({
     offer_id
   }) {
     return this.offers.get(offer_id);
@@ -872,18 +938,18 @@ let Market = (_dec = NearBindgen({
     // TODO: remove offer from map
 
     const promise = promiseBatchCreate(nft_contract_id);
-    promiseBatchActionFunctionCall(promise, "nft_transfer_payout", bytes(JSON.stringify({
+    promiseBatchActionFunctionCall(promise, "nft_transfer_payout", JSON.stringify({
       receiver_id: account_id,
       token_id: token_id,
       approval_id: approval_id,
       memo: "payout from market",
       balance: amount,
       max_len_payout: 20
-    })), BigInt("1"), BigInt("150000000000000"));
-    promiseThen(promise, currentAccountId(), "internal_resolve_purchase", bytes(JSON.stringify({
+    }), BigInt("1"), BigInt("150000000000000"));
+    promiseThen(promise, currentAccountId(), "internal_resolve_purchase", JSON.stringify({
       buyer_id: account_id,
       price: amount
-    })), 0, 115_000_000_000_000);
+    }), 0, 115_000_000_000_000);
     return promiseReturn(promise);
   }
   internal_resolve_purchase({
@@ -925,7 +991,7 @@ let Market = (_dec = NearBindgen({
     }
     return price;
   }
-}, (_applyDecoratedDescriptor(_class2.prototype, "init", [_dec2], Object.getOwnPropertyDescriptor(_class2.prototype, "init"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "get_offer_token_contract_id", [_dec3], Object.getOwnPropertyDescriptor(_class2.prototype, "get_offer_token_contract_id"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "make_offer", [_dec4], Object.getOwnPropertyDescriptor(_class2.prototype, "make_offer"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "nft_on_approve", [_dec5], Object.getOwnPropertyDescriptor(_class2.prototype, "nft_on_approve"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "buy", [_dec6], Object.getOwnPropertyDescriptor(_class2.prototype, "buy"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "internal_resolve_purchase", [_dec7], Object.getOwnPropertyDescriptor(_class2.prototype, "internal_resolve_purchase"), _class2.prototype)), _class2)) || _class);
+}, (_applyDecoratedDescriptor(_class2.prototype, "init", [_dec2], Object.getOwnPropertyDescriptor(_class2.prototype, "init"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "get_offer_by_id", [_dec3], Object.getOwnPropertyDescriptor(_class2.prototype, "get_offer_by_id"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "make_offer", [_dec4], Object.getOwnPropertyDescriptor(_class2.prototype, "make_offer"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "nft_on_approve", [_dec5], Object.getOwnPropertyDescriptor(_class2.prototype, "nft_on_approve"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "buy", [_dec6], Object.getOwnPropertyDescriptor(_class2.prototype, "buy"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "internal_resolve_purchase", [_dec7], Object.getOwnPropertyDescriptor(_class2.prototype, "internal_resolve_purchase"), _class2.prototype)), _class2)) || _class);
 function internal_resolve_purchase() {
   const _state = Market._getState();
   if (!_state && Market._requireInit()) {
@@ -982,7 +1048,7 @@ function make_offer() {
   Market._saveToStorage(_contract);
   if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(Market._serialize(_result, true));
 }
-function get_offer_token_contract_id() {
+function get_offer_by_id() {
   const _state = Market._getState();
   if (!_state && Market._requireInit()) {
     throw new Error("Contract must be initialized");
@@ -992,7 +1058,7 @@ function get_offer_token_contract_id() {
     Market._reconstruct(_contract, _state);
   }
   const _args = Market._getArgs();
-  const _result = _contract.get_offer_token_contract_id(_args);
+  const _result = _contract.get_offer_by_id(_args);
   if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(Market._serialize(_result, true));
 }
 function init() {
@@ -1007,5 +1073,5 @@ function init() {
   if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(Market._serialize(_result, true));
 }
 
-export { buy, get_offer_token_contract_id, init, internal_resolve_purchase, make_offer, nft_on_approve };
+export { buy, get_offer_by_id, init, internal_resolve_purchase, make_offer, nft_on_approve };
 //# sourceMappingURL=hello_near.js.map

@@ -52,7 +52,7 @@ class Market {
   init() {}
 
   @view({})
-  get_offer_token_contract_id({ offer_id }: { offer_id: string }) {
+  get_offer_by_id({ offer_id }: { offer_id: string }) {
     return this.offers.get(offer_id);
   }
 
@@ -149,16 +149,15 @@ class Market {
     near.promiseBatchActionFunctionCall(
       promise,
       "nft_transfer_payout",
-      bytes(
-        JSON.stringify({
-          receiver_id: account_id,
-          token_id: token_id,
-          approval_id: approval_id,
-          memo: "payout from market",
-          balance: amount,
-          max_len_payout: 20,
-        })
-      ),
+
+      JSON.stringify({
+        receiver_id: account_id,
+        token_id: token_id,
+        approval_id: approval_id,
+        memo: "payout from market",
+        balance: amount,
+        max_len_payout: 20,
+      }),
       BigInt("1"),
       BigInt("150000000000000")
     );
@@ -167,12 +166,10 @@ class Market {
       promise,
       near.currentAccountId(),
       "internal_resolve_purchase",
-      bytes(
-        JSON.stringify({
-          buyer_id: account_id,
-          price: amount,
-        })
-      ),
+      JSON.stringify({
+        buyer_id: account_id,
+        price: amount,
+      }),
       0,
       115_000_000_000_000
     );

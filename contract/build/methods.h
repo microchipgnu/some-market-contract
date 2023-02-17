@@ -1,5 +1,5 @@
 DEFINE_NEAR_METHOD(buy)
-DEFINE_NEAR_METHOD(get_offer_token_contract_id)
+DEFINE_NEAR_METHOD(get_offer_by_id)
 DEFINE_NEAR_METHOD(init)
 DEFINE_NEAR_METHOD(internal_resolve_purchase)
 DEFINE_NEAR_METHOD(make_offer)

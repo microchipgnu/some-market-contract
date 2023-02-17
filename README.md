@@ -1,100 +1,48 @@
-near-blank-project
+SOME Marketplace
 ==================
 
-This app was initialized with [create-near-app]
+SOME (Simply Offer MarketplacE) is a contract that facilitates the exchange of Non-fungible Tokens (NFTs) and Fungible Tokens (FTs). The contract leverages NEAR Social as a notification system to keep both parties informed throughout the exchange process.
 
 
-Quick Start
-===========
+## Features
 
-If you haven't installed dependencies during setup:
+1. Leverages Near Social notification system to notify involved parties.
+2. Implements Mintbase AffiliateDirect standard. 
 
-    npm install
+## Process
 
+The exchange process is divided into three steps: creating an offer, accepting an offer, and exchanging FT for NFT. 
 
-Build and deploy your contract to TestNet with a temporary dev account:
+The first step involves the offerer (A) creating an offer in the market contract (MC) and notifying the NFT token owner (B) of the offer via the NEAR Social contract (NSC). 
 
-    npm run deploy
+In the second step, the NFT token owner (B) approves the offer and the MC writes a notification to the offerer (A) via NSC. 
 
-Test your contract:
+Finally, in the third step, the offerer (A) transfers FT to the market contract (MC), which then attempts to transfer the NFT to the offerer (A) and the FT to the NFT token owner (B).
 
-    npm test
+### Creating an offer
 
-If you have a frontend, run `npm start`. This will run a dev server.
+1. **A** calls `make_offer` to create an offer in **MC**.
+2. **MC** calls `XXX` to write a notification in **NSC**. This notifies **B** that an offer was created.
 
+### Accepting an offer
 
-Exploring The Code
-==================
+1. **B** calls `nft_approve` on **NFT** targetting **MC**. This triggers `nft_on_approve` on **MC**.
+2. **MC** calls `XXX` to write a notification on **NSC** notifying **A** that the offer was accepted.
 
-1. The smart-contract code lives in the `/contract` folder. See the README there for
-   more info. In blockchain apps the smart contract is the "backend" of your app.
-2. The frontend code lives in the `/frontend` folder. `/frontend/index.html` is a great
-   place to start exploring. Note that it loads in `/frontend/index.js`,
-   this is your entrypoint to learn how the frontend connects to the NEAR blockchain.
-3. Test your contract: `npm test`, this will run the tests in `integration-tests` directory.
+```sh
+near call nft nft_approve '{
+   "token_id": "1",
+   "account_id": "market",
+   "msg": "{\"offer_id\": \"XYZ\"}"
+ }' --accountId A --depositYocto 1
+```
 
+### Exchanging the NFT
 
-Deploy
-======
+1. **A** calls `buy` on **MC**
 
-Every smart contract in NEAR has its [own associated account][NEAR accounts]. 
-When you run `npm run deploy`, your smart contract gets deployed to the live NEAR TestNet with a temporary dev account.
-When you're ready to make it permanent, here's how:
-
-
-Step 0: Install near-cli (optional)
--------------------------------------
-
-[near-cli] is a command line interface (CLI) for interacting with the NEAR blockchain. It was installed to the local `node_modules` folder when you ran `npm install`, but for best ergonomics you may want to install it globally:
-
-    npm install --global near-cli
-
-Or, if you'd rather use the locally-installed version, you can prefix all `near` commands with `npx`
-
-Ensure that it's installed with `near --version` (or `npx near --version`)
-
-
-Step 1: Create an account for the contract
-------------------------------------------
-
-Each account on NEAR can have at most one contract deployed to it. If you've already created an account such as `your-name.testnet`, you can deploy your contract to `near-blank-project.your-name.testnet`. Assuming you've already created an account on [NEAR Wallet], here's how to create `near-blank-project.your-name.testnet`:
-
-1. Authorize NEAR CLI, following the commands it gives you:
-
-      near login
-
-2. Create a subaccount (replace `YOUR-NAME` below with your actual account name):
-
-      near create-account near-blank-project.YOUR-NAME.testnet --masterAccount YOUR-NAME.testnet
-
-Step 2: deploy the contract
----------------------------
-
-Use the CLI to deploy the contract to TestNet with your account ID.
-Replace `PATH_TO_WASM_FILE` with the `wasm` that was generated in `contract` build directory.
-
-    near deploy --accountId near-blank-project.YOUR-NAME.testnet --wasmFile PATH_TO_WASM_FILE
-
-
-Step 3: set contract name in your frontend code
------------------------------------------------
-
-Modify the line in `src/config.js` that sets the account name of the contract. Set it to the account id you used above.
-
-    const CONTRACT_NAME = process.env.CONTRACT_NAME || 'near-blank-project.YOUR-NAME.testnet'
-
-
-
-Troubleshooting
-===============
-
-On Windows, if you're seeing an error containing `EPERM` it may be related to spaces in your path. Please see [this issue](https://github.com/zkat/npx/issues/209) for more details.
-
-
-  [create-near-app]: https://github.com/near/create-near-app
-  [Node.js]: https://nodejs.org/en/download/package-manager/
-  [jest]: https://jestjs.io/
-  [NEAR accounts]: https://docs.near.org/concepts/basics/account
-  [NEAR Wallet]: https://wallet.testnet.near.org/
-  [near-cli]: https://github.com/near/near-cli
-  [gh-pages]: https://github.com/tschaub/gh-pages
+```sh
+near call market buy '{
+   "offer_id": "XYZ" 
+ }' --accountId B --depositYocto offer_amount
+```
