@@ -1,7 +1,7 @@
 SOME Marketplace ⚠️ 
 ==================
 
-SOME (Simply Offer MarketplacE) is a contract that facilitates the exchange of Non-fungible Tokens (NFTs) and Fungible Tokens (FTs). The contract leverages NEAR Social as a notification system to keep both parties informed throughout the exchange process.
+SOME (Simply Offer MarketplacE) is a contract that facilitates the exchange of Non-fungible Tokens (NFTs) and NEAR. The contract leverages NEAR Social as a notification system to keep both parties informed throughout the exchange process.
 
 - [Near Social Live Demo](https://test.near.social/#/luisf.testnet/widget/some-market)
 - [Live Contract](https://testnet.nearblocks.io/address/dev-1676391043857-14814706623603)
@@ -13,13 +13,13 @@ SOME (Simply Offer MarketplacE) is a contract that facilitates the exchange of N
 
 ## Process
 
-The exchange process is divided into three steps: creating an offer, accepting an offer, and exchanging FT for NFT. 
+The exchange process is divided into three steps: creating an offer, accepting an offer, and exchanging NEAR for NFT. 
 
 The first step involves the offerer (A) creating an offer in the market contract (MC) and notifying the NFT token owner (B) of the offer via the NEAR Social contract (NSC). 
 
 In the second step, the NFT token owner (B) approves the offer and the MC writes a notification to the offerer (A) via NSC. 
 
-Finally, in the third step, the offerer (A) transfers FT to the market contract (MC), which then attempts to transfer the NFT to the offerer (A) and the FT to the NFT token owner (B).
+Finally, in the third step, the offerer (A) transfers NEAR to the market contract (MC), which then attempts to transfer the NFT to the offerer (A) and the NEAR to the NFT token owner (B).
 
 ### Creating an offer
 
